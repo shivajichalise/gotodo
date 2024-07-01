@@ -23,6 +23,10 @@ type Todo struct {
 	Todo string `json:"todo"`
 }
 
+type Response struct {
+	Message string `json:"message"`
+}
+
 func AddTodoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -93,9 +97,24 @@ func UpdateTodoHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Printf("INFO: update todo is hit\n")
 }
 
-func DeleteTodoHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprint(w, "Delete todo")
-	log.Printf("INFO: delete todo is hit\n")
+func DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	todo_id := vars["todo"]
+
+	stmt, err := db.Prepare(`DELETE FROM todos WHERE id = ?`)
+	if err != nil {
+		log.Fatalf("ERROR: could not prepare query: %v", err.Error())
+	}
+	defer stmt.Close()
+
+	_, query_err := stmt.Exec(todo_id)
+	if query_err != nil {
+		log.Fatalf("ERROR: could not delete todo: %v", err.Error())
+	}
+
+	response := Response{Message: "Todo deleted successfully."}
+	json.NewEncoder(w).Encode(response)
 }
 
 func MarkTodoCompleteHandler(w http.ResponseWriter, _ *http.Request) {
