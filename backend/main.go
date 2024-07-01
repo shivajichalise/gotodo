@@ -92,9 +92,31 @@ func GetTodoHandler(w http.ResponseWriter, _ *http.Request) {
 	json.NewEncoder(w).Encode(todos)
 }
 
-func UpdateTodoHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprint(w, "Update todo")
-	log.Printf("INFO: update todo is hit\n")
+func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	todo_id := vars["todo"]
+
+	var todo Todo
+
+	err := json.NewDecoder(r.Body).Decode(&todo)
+	if err != nil {
+		log.Fatalf("ERROR: could not read request payload: %v", err.Error())
+	}
+
+	stmt, err := db.Prepare(`UPDATE todos SET todo = ? WHERE id = ?`)
+	if err != nil {
+		log.Fatalf("ERROR: could not prepare query: %v", err.Error())
+	}
+	defer stmt.Close()
+
+	_, query_err := stmt.Exec(todo.Todo, todo_id)
+	if query_err != nil {
+		log.Fatalf("ERROR: could not update todo: %v", err.Error())
+	}
+
+	response := Response{Message: "Todo updated successfully."}
+	json.NewEncoder(w).Encode(response)
 }
 
 func DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
