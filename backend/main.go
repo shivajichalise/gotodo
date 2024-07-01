@@ -26,6 +26,29 @@ type Response struct {
 	Message string `json:"message"`
 }
 
+func todoExists(todo_id string) bool {
+	count := 0
+
+	//---------------------SQL start-----------------------------------------------//
+	stmt, err := db.Prepare(`SELECT COUNT(*) FROM todos WHERE id = ?`)
+	if err != nil {
+		log.Fatalf("ERROR: could not check for todo with given id: %s", err.Error())
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(todo_id).Scan(&count)
+	if err != nil {
+		log.Fatalf("ERROR: could not query for given todo: %s", err)
+	}
+	//---------------------SQL end-----------------------------------------------//
+
+	if count > 0 {
+		return true
+	}
+
+	return false
+}
+
 func AddTodoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -96,6 +119,13 @@ func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	todo_id := vars["todo"]
 
+	if !todoExists(todo_id) {
+		response := Response{Message: "Todo not found."}
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
 	var todo Todo
 
 	err := json.NewDecoder(r.Body).Decode(&todo)
@@ -103,6 +133,7 @@ func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("ERROR: could not read request payload: %s", err.Error())
 	}
 
+	//---------------------SQL start-----------------------------------------------//
 	stmt, err := db.Prepare(`UPDATE todos SET todo = ? WHERE id = ?`)
 	if err != nil {
 		log.Fatalf("ERROR: could not prepare query: %s", err.Error())
@@ -113,6 +144,7 @@ func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if query_err != nil {
 		log.Fatalf("ERROR: could not update todo: %s", err.Error())
 	}
+	//---------------------SQL end-----------------------------------------------//
 
 	response := Response{Message: "Todo updated successfully."}
 	json.NewEncoder(w).Encode(response)
@@ -122,6 +154,13 @@ func DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	todo_id := vars["todo"]
+
+	if !todoExists(todo_id) {
+		response := Response{Message: "Todo not found."}
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
 
 	stmt, err := db.Prepare(`DELETE FROM todos WHERE id = ?`)
 	if err != nil {
@@ -143,6 +182,14 @@ func MarkTodoCompleteHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	todo_id := vars["todo"]
 
+	if !todoExists(todo_id) {
+		response := Response{Message: "Todo not found."}
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	//---------------------SQL start-----------------------------------------------//
 	stmt, err := db.Prepare(`UPDATE todos SET is_completed = true WHERE id = ?`)
 	if err != nil {
 		log.Fatalf("ERROR: could not prepare query: %s", err.Error())
@@ -153,6 +200,7 @@ func MarkTodoCompleteHandler(w http.ResponseWriter, r *http.Request) {
 	if query_err != nil {
 		log.Fatalf("ERROR: could not mark todo as complete: %s", err.Error())
 	}
+	//---------------------SQL end-----------------------------------------------//
 
 	response := Response{Message: "Todo marked as completed successfully."}
 	json.NewEncoder(w).Encode(response)
