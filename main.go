@@ -19,8 +19,9 @@ const (
 var db *sql.DB
 
 type Todo struct {
-	Id   string `json:"id"`
-	Todo string `json:"todo"`
+	Id          string `json:"id"`
+	Todo        string `json:"todo"`
+	IsCompleted bool   `json:"is_completed"`
 }
 
 type Response struct {
@@ -81,6 +82,7 @@ func AddTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: could not prepare query: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again.", http.StatusInternalServerError)
+		return
 	}
 	defer stmt.Close()
 
@@ -88,6 +90,7 @@ func AddTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if query_err != nil {
 		log.Printf("ERROR: could not add new todo: %s\n", err.Error())
 		respond(w, "Could not add a new todo, please try again.", http.StatusInternalServerError)
+		return
 	}
 	//---------------------SQL end-----------------------------------------------//
 
@@ -99,33 +102,41 @@ func GetTodoHandler(w http.ResponseWriter, _ *http.Request) {
 	var todos []Todo
 
 	//---------------------SQL start-----------------------------------------------//
-	sql_stmt := `SELECT * FROM todos;`
-	result, err := db.Query(sql_stmt)
+	result, err := db.Query("SELECT id, todo, is_completed FROM todos")
 	if err != nil {
 		log.Printf("ERROR: could not fetch todos: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 	defer result.Close()
 
 	for result.Next() {
 		var id string
 		var todo string
+		var is_completed bool
 
-		scan_err := result.Scan(&id, &todo)
+		scan_err := result.Scan(&id, &todo, &is_completed)
 		if scan_err != nil {
 			log.Printf("ERROR: could not extract todos data: %s\n", err.Error())
 			respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+			return
 		}
 
-		todos = append(todos, Todo{id, todo})
+		todos = append(todos, Todo{id, todo, is_completed})
 	}
 
 	result_err := result.Err()
 	if result_err != nil {
 		log.Printf("ERROR: cannot complete the iteration: %s\n", result_err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 	//---------------------SQL end-----------------------------------------------//
+
+	if len(todos) == 0 {
+		json.NewEncoder(w).Encode(make([]string, 0))
+		return
+	}
 
 	json.NewEncoder(w).Encode(todos)
 }
@@ -154,6 +165,7 @@ func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: could not read request payload: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 
 	//---------------------SQL start-----------------------------------------------//
@@ -161,6 +173,7 @@ func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: could not prepare query: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 	defer stmt.Close()
 
@@ -168,6 +181,7 @@ func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if query_err != nil {
 		log.Printf("ERROR: could not update todo: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 	//---------------------SQL end-----------------------------------------------//
 
@@ -197,6 +211,7 @@ func DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: could not prepare query: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 	defer stmt.Close()
 
@@ -204,6 +219,7 @@ func DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 	if query_err != nil {
 		log.Printf("ERROR: could not delete todo: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 
 	response := Response{Message: "Todo deleted successfully."}
@@ -233,6 +249,7 @@ func MarkTodoCompleteHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: could not prepare query: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 	defer stmt.Close()
 
@@ -240,6 +257,7 @@ func MarkTodoCompleteHandler(w http.ResponseWriter, r *http.Request) {
 	if query_err != nil {
 		log.Printf("ERROR: could not mark todo as complete: %s\n", err.Error())
 		respond(w, "Something went wrong, please try again", http.StatusInternalServerError)
+		return
 	}
 	//---------------------SQL end-----------------------------------------------//
 
