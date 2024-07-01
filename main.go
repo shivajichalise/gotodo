@@ -94,6 +94,7 @@ func AddTodoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	//---------------------SQL end-----------------------------------------------//
 
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(todo)
 }
 
